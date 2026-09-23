@@ -12,6 +12,9 @@ type ClassifyResult = {
 
 type ClassifyError = { error: string };
 
+// Choiceの確信度（分布の集中度）がこの値を下回ったら、結果を鵜呑みにしないよう警告する
+const LOW_CONFIDENCE_THRESHOLD = 0.5;
+
 function isError(
   result: ClassifyResult | ClassifyError,
 ): result is ClassifyError {
@@ -111,9 +114,23 @@ export function ReceiptClassifier() {
             <p className="text-2xl font-semibold">{result.account}</p>
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
               確率 {formatPercent(result.probability)} ／ 確信度{" "}
-              {formatPercent(result.confidence)}
+              <span
+                className={
+                  result.confidence < LOW_CONFIDENCE_THRESHOLD
+                    ? "font-semibold text-amber-600 dark:text-amber-400"
+                    : undefined
+                }
+              >
+                {formatPercent(result.confidence)}
+              </span>
             </p>
           </div>
+
+          {result.confidence < LOW_CONFIDENCE_THRESHOLD && (
+            <p className="rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+              確信度が低い判定です。OCRの読み取りが不十分な可能性があるため、この推定結果は参考程度にとどめ、内容を確認してください。
+            </p>
+          )}
 
           {result.alternatives.length > 0 && (
             <div>
