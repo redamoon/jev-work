@@ -1,36 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# レシート仕訳アシスタント
 
-## Getting Started
+レシート・領収書の画像をアップロードすると、OCR（Tesseract.js）でテキストを抽出し、
+[Jev (TypeSafe)](https://typesafe.ai) が借方勘定科目を確率付きで推定するWebアプリ。
 
-First, run the development server:
+## セットアップ
 
 ```bash
+npm install
+# .env.local を作成し、以下を1行追加する
+#   TYPESAFE_API_KEY=your-typesafe-api-key-here
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+http://localhost:3000 を開いてレシート画像をアップロードする。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 仕組み
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. `src/components/ReceiptClassifier.tsx` が画像を `/api/classify` へ送信
+2. `src/app/api/classify/route.ts` が Tesseract.js（日本語）でOCRを実行
+3. OCRテキストを Jev の `choice()` 判定に渡し、`src/lib/accounts.ts` に定義した
+   勘定科目リストから最も該当する科目・確率・確信度・次点候補を取得
+4. 結果をJSONで返し、画面に表示
 
-## Learn More
+## スコープ（MVP）
 
-To learn more about Next.js, take a look at the following resources:
+- 借方勘定科目の推定のみ（貸方や金額仕訳は未対応）
+- 勘定科目リストは経費精算でよく使う14科目（`src/lib/accounts.ts`）
+- OCR言語は日本語（`jpn`）固定
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 今後の拡張候補
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- 貸方科目（現金・クレジットカード等）の判定を追加し複式仕訳を生成
+- OCRからの金額・日付・店名の構造化抽出（Jevの値抽出パターン）
+- 勘定科目リストのカスタマイズ機能（会社ごとの科目マスタ対応）
+- 低確信度時のレビュー導線（人手確認へのエスカレーション）
