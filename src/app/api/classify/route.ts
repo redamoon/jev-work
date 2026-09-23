@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { createWorker, type Worker } from "tesseract.js";
-import { choice } from "@typesafe-ai/sdk";
+import { choice, noul } from "@typesafe-ai/sdk";
 import { getTypeSafeClient } from "@/lib/typesafe";
 import { EXPENSE_ACCOUNTS, type ExpenseAccount } from "@/lib/accounts";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+// OCRテキストがレシートとして意味を成しているとみなす下限確率。
+// 下回った場合は勘定科目の判定自体を行わず、読み取り不良として返す。
+const READABLE_THRESHOLD = 0.5;
 
 // OCR ワーカーはコールドスタートごとに言語データを読み込むため、
 // warm なランタイム内では使い回す。
@@ -72,12 +76,29 @@ export async function POST(request: Request) {
     const result = await client.systemOne({
       state: { receiptText: ocrText },
       questions: {
+        readable: noul(
+          "このOCRテキスト `receiptText` は、レシート・領収書の内容として日本語で意味が通るか。",
+          {
+            true: "店名・金額・品目など、レシートとして自然に読める内容が含まれている",
+            false: "文字化けや無関係な文字列の羅列で、レシートの内容として意味を成さない",
+          },
+        ),
         account: choice(
           "このレシート・領収書のOCRテキスト `receiptText` は、経費精算における借方のどの勘定科目に最も該当するか。",
           criteria,
         ),
       },
     });
+
+    const readableProbability = result.answers.readable.noul;
+
+    if (readableProbability < READABLE_THRESHOLD) {
+      return NextResponse.json({
+        ocrText,
+        readable: false,
+        readableProbability,
+      });
+    }
 
     const answer = result.answers.account;
     const alternatives = Object.entries(answer.probabilities)
@@ -88,6 +109,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ocrText,
+      readable: true,
+      readableProbability,
       account: answer.choice,
       probability: answer.probabilities[answer.choice],
       confidence: answer.confidence,

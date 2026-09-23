@@ -2,13 +2,21 @@
 
 import { useRef, useState } from "react";
 
-type ClassifyResult = {
-  ocrText: string;
-  account: string;
-  probability: number;
-  confidence: number;
-  alternatives: { account: string; probability: number }[];
-};
+type ClassifyResult =
+  | {
+      ocrText: string;
+      readable: false;
+      readableProbability: number;
+    }
+  | {
+      ocrText: string;
+      readable: true;
+      readableProbability: number;
+      account: string;
+      probability: number;
+      confidence: number;
+      alternatives: { account: string; probability: number }[];
+    };
 
 type ClassifyError = { error: string };
 
@@ -105,7 +113,26 @@ export function ReceiptClassifier() {
         </p>
       )}
 
-      {result && (
+      {result && !result.readable && (
+        <div className="flex flex-col gap-4 rounded-lg border border-black/[.08] p-5 dark:border-white/[.145]">
+          <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+            OCRでレシートの内容を読み取れませんでした（読み取れた確率{" "}
+            {formatPercent(result.readableProbability)}
+            ）。明るい場所で正面から撮り直すか、別の画像でお試しください。
+          </p>
+
+          <details className="text-sm text-zinc-600 dark:text-zinc-400">
+            <summary className="cursor-pointer select-none">
+              OCR抽出テキストを表示
+            </summary>
+            <pre className="mt-2 whitespace-pre-wrap rounded bg-black/[.03] p-3 text-xs dark:bg-white/[.05]">
+              {result.ocrText}
+            </pre>
+          </details>
+        </div>
+      )}
+
+      {result && result.readable && (
         <div className="flex flex-col gap-4 rounded-lg border border-black/[.08] p-5 dark:border-white/[.145]">
           <div>
             <p className="text-xs uppercase tracking-wide text-zinc-500">
